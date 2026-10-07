@@ -18,23 +18,23 @@
       font-family: 'Consolas', 'Courier New', monospace;
       overflow: hidden;
     }
-    header { text-align: center; margin-bottom: 8px; }
+    header { text-align: center; margin-bottom: 6px; }
     h1 {
       margin: 0;
-      font-size: 26px;
+      font-size: 24px;
       letter-spacing: 3px;
       color: #00f0ff;
       text-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
     }
     .hud {
       display: flex;
-      gap: 20px;
-      margin-bottom: 6px;
-      font-size: 13px;
+      gap: 15px;
+      margin-bottom: 4px;
+      font-size: 12px;
     }
     .badge {
       background: #1a1e2d;
-      padding: 3px 10px;
+      padding: 2px 8px;
       border-radius: 4px;
       border: 1px solid #2d3548;
     }
@@ -48,14 +48,14 @@
     .controls {
       display: flex;
       gap: 15px;
-      margin-top: 10px;
-      font-size: 12px;
+      margin-top: 8px;
+      font-size: 11px;
       color: #7b88a1;
     }
     kbd {
       background: #242b3d;
       color: #fff;
-      padding: 2px 6px;
+      padding: 2px 5px;
       border-radius: 3px;
       border: 1px solid #3d4866;
     }
@@ -65,18 +65,18 @@
   <header>
     <h1>RETRO PONG ENGINE</h1>
     <div class="hud">
-      <div class="badge">Active Mode: <span id="modeName">CLASSIC</span></div>
-      <div class="badge">Difficulty: <span id="speedMultiplier">1.0x</span></div>
+      <div class="badge">Mode: <span id="modeName">CLASSIC</span></div>
+      <div class="badge">Multiplier: <span id="speedMultiplier">1.0x</span></div>
     </div>
   </header>
 
   <canvas id="gameCanvas" width="800" height="500"></canvas>
 
   <div class="controls">
-    <div><kbd>W</kbd> / <kbd>S</kbd> P1</div>
-    <div><kbd>↑</kbd> / <kbd>↓</kbd> P2</div>
-    <div><kbd>1</kbd> Classic | <kbd>2</kbd> Chaos | <kbd>3</kbd> Portal | <kbd>4</kbd> Wind</div>
-    <div><kbd>Space</kbd> Start / Restart</div>
+    <div><kbd>W/S</kbd> P1</div>
+    <div><kbd>↑/↓</kbd> P2/AI</div>
+    <div><kbd>ESC</kbd> Pause/Menu</div>
+    <div><kbd>1-4</kbd> Switch Modes</div>
   </div>
 
   <script>
@@ -85,57 +85,60 @@
     const modeLabel = document.getElementById("modeName");
     const speedLabel = document.getElementById("speedMultiplier");
 
-    const MODES = { 1: "CLASSIC", 2: "CHAOS", 3: "PORTAL", 4: "WIND" };
-    let currentMode = "CLASSIC";
+    const MODES = { 
+      1: { name: "CLASSIC", desc: "Standard arcade rules with speed ramping." }, 
+      2: { name: "CHAOS", desc: "Unpredictable erratic ball deflection physics." }, 
+      3: { name: "PORTAL", desc: "Teleporting spatial hoops across the court." }, 
+      4: { name: "WIND", desc: "Dynamic vertical wind currents shifting trajectory." } 
+    };
+    
+    let currentModeKey = 1;
+    let currentModeName = "CLASSIC";
 
     // Engine entities
-    const P_WIDTH = 14, P_HEIGHT = 85;
-    let p1_y = 207, p2_y = 207;
-    let pSpeed = 7;
-
+    const P_WIDTH = 14, P_HEIGHT = 80;
+    let p1_y = 210, p2_y = 210, pSpeed = 7;
     const B_SIZE = 12;
-    let bx = 400, by = 250;
-    let bvx = 5, bvy = 5;
-    let baseSpeed = 5;
-    let speedMult = 1.0;
-
-    let score1 = 0, score2 = 0;
-    const WIN_SCORE = 5;
-    let gameState = "MENU"; // MENU, PLAYING, GAMEOVER
+    let bx = 400, by = 250, bvx = 5, bvy = 5, baseSpeed = 5, speedMult = 1.0;
+    let score1 = 0, score2 = 0, WIN_SCORE = 5;
+    
+    // States: "MENU", "TUTORIAL", "PLAYING", "PAUSED", "GAMEOVER"
+    let gameState = "MENU"; 
     let keys = {};
     let particles = [];
 
-    // Portals
+    // Portals & Wind
     const portals = {
       pA: { x: 400, y: 90, r: 20, target: { x: 400, y: 410 } },
       pB: { x: 400, y: 410, r: 20, target: { x: 400, y: 90 } }
     };
-    let portalCooldown = 0;
-
-    // Wind force vector
-    let windVectorY = 0;
-    let windTimer = 0;
+    let portalCooldown = 0, windVectorY = 0, windTimer = 0;
 
     window.addEventListener("keydown", e => {
       keys[e.key.toLowerCase()] = true;
 
-      if (e.code === "Space") {
-        if (gameState === "MENU" || gameState === "GAMEOVER") {
-          score1 = 0;
-          score2 = 0;
-          speedMult = 1.0;
+      if (e.key === "Escape") {
+        if (gameState === "PLAYING") gameState = "PAUSED";
+        else if (gameState === "PAUSED" || gameState === "TUTORIAL") gameState = "MENU";
+      }
+
+      if (gameState === "MENU") {
+        if (e.key === "1" || e.key === "2" || e.key === "3" || e.key === "4") {
+          currentModeKey = parseInt(e.key);
+          currentModeName = MODES[currentModeKey].name;
+          modeLabel.innerText = currentModeName;
+        }
+        if (e.key === "t" || e.key === "T") gameState = "TUTORIAL";
+        if (e.code === "Space") {
+          score1 = 0; score2 = 0; speedMult = 1.0;
           resetBall();
           gameState = "PLAYING";
         }
-      }
-
-      if (["1", "2", "3", "4"].includes(e.key)) {
-        currentMode = MODES[e.key];
-        modeLabel.innerText = currentMode;
-        if (currentMode === "CHAOS") modeLabel.style.color = "#ffaa00";
-        else if (currentMode === "PORTAL") modeLabel.style.color = "#a855f7";
-        else if (currentMode === "WIND") modeLabel.style.color = "#38bdf8";
-        else modeLabel.style.color = "#00f0ff";
+      } else if (gameState === "PAUSED") {
+        if (e.code === "Space") gameState = "PLAYING"; // Resume
+        if (e.key.toLowerCase() === "m") gameState = "MENU"; // Return to menu
+      } else if (gameState === "GAMEOVER") {
+        if (e.code === "Space" || e.key === "Escape") gameState = "MENU";
       }
     });
 
@@ -154,11 +157,8 @@
     function spawnHitParticles(x, y, color) {
       for (let i = 0; i < 8; i++) {
         particles.push({
-          x, y,
-          vx: (Math.random() - 0.5) * 6,
-          vy: (Math.random() - 0.5) * 6,
-          life: 18,
-          color
+          x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+          life: 18, color
         });
       }
     }
@@ -166,108 +166,81 @@
     function update() {
       if (gameState !== "PLAYING") return;
 
-      // Player 1 controls
       if (keys["w"] && p1_y > 0) p1_y -= pSpeed;
       if (keys["s"] && p1_y < canvas.height - P_HEIGHT) p1_y += pSpeed;
 
-      // Player 2 controls / AI fallback
       if (keys["arrowup"] && p2_y > 0) p2_y -= pSpeed;
       else if (keys["arrowdown"] && p2_y < canvas.height - P_HEIGHT) p2_y += pSpeed;
       else {
-        // AI smoothing
         let p2Center = p2_y + P_HEIGHT / 2;
         if (p2Center < by - 8) p2_y += Math.min(5.6, by - p2Center);
         else if (p2Center > by + 8) p2_y -= Math.min(5.6, p2Center - by);
         p2_y = Math.max(0, Math.min(canvas.height - P_HEIGHT, p2_y));
       }
 
-      // Wind Mode Physics
-      if (currentMode === "WIND") {
+      if (currentModeName === "WIND") {
         windTimer++;
         if (windTimer > 120) {
-          windVectorY = (Math.random() - 0.5) * 0.4;
+          windVectorY = (Math.random() - 0.5) * 0.45;
           windTimer = 0;
         }
         bvy += windVectorY;
       }
 
-      // Ball translation
       bx += bvx;
       by += bvy;
 
-      // Portal Mode Physics
-      if (currentMode === "PORTAL") {
+      if (currentModeName === "PORTAL") {
         if (portalCooldown > 0) portalCooldown--;
         else {
           let distA = Math.hypot(bx - portals.pA.x, by - portals.pA.y);
           let distB = Math.hypot(bx - portals.pB.x, by - portals.pB.y);
           if (distA < portals.pA.r) {
-            bx = portals.pA.target.x;
-            by = portals.pA.target.y + (bvy > 0 ? 25 : -25);
-            portalCooldown = 40;
-            spawnHitParticles(bx, by, "#a855f7");
+            bx = portals.pA.target.x; by = portals.pA.target.y + (bvy > 0 ? 25 : -25);
+            portalCooldown = 40; spawnHitParticles(bx, by, "#a855f7");
           } else if (distB < portals.pB.r) {
-            bx = portals.pB.target.x;
-            by = portals.pB.target.y + (bvy > 0 ? 25 : -25);
-            portalCooldown = 40;
-            spawnHitParticles(bx, by, "#a855f7");
+            bx = portals.pB.target.x; by = portals.pB.target.y + (bvy > 0 ? 25 : -25);
+            portalCooldown = 40; spawnHitParticles(bx, by, "#a855f7");
           }
         }
       }
 
-      // Top / Bottom wall bounds
-      if (by <= 0) {
-        by = 0;
-        bvy *= -1;
-        spawnHitParticles(bx, by, "#ffffff");
-      } else if (by >= canvas.height - B_SIZE) {
-        by = canvas.height - B_SIZE;
-        bvy *= -1;
-        spawnHitParticles(bx, by, "#ffffff");
-      }
+      if (by <= 0) { by = 0; bvy *= -1; spawnHitParticles(bx, by, "#fff"); }
+      else if (by >= canvas.height - B_SIZE) { by = canvas.height - B_SIZE; bvy *= -1; spawnHitParticles(bx, by, "#fff"); }
 
-      // Paddle AABB Collision checks
-      // Left Paddle
+      // Left Paddle Collision
       if (bx <= 30 + P_WIDTH && bx >= 25 && by + B_SIZE >= p1_y && by <= p1_y + P_HEIGHT && bvx < 0) {
         speedMult = Math.min(2.5, speedMult * 1.07);
         speedLabel.innerText = speedMult.toFixed(1) + "x";
         bvx = Math.abs(bvx) * 1.07;
         let offset = (by + B_SIZE / 2) - (p1_y + P_HEIGHT / 2);
         bvy = offset * 0.18;
-
-        if (currentMode === "CHAOS") bvy += (Math.random() - 0.5) * 5;
+        if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 6;
         spawnHitParticles(30 + P_WIDTH, by + B_SIZE / 2, "#00f0ff");
       }
 
-      // Right Paddle
+      // Right Paddle Collision
       if (bx + B_SIZE >= canvas.width - 30 - P_WIDTH && bx + B_SIZE <= canvas.width - 25 && by + B_SIZE >= p2_y && by <= p2_y + P_HEIGHT && bvx > 0) {
         speedMult = Math.min(2.5, speedMult * 1.07);
         speedLabel.innerText = speedMult.toFixed(1) + "x";
         bvx = -Math.abs(bvx) * 1.07;
         let offset = (by + B_SIZE / 2) - (p2_y + P_HEIGHT / 2);
         bvy = offset * 0.18;
-
-        if (currentMode === "CHAOS") bvy += (Math.random() - 0.5) * 5;
+        if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 6;
         spawnHitParticles(canvas.width - 30 - P_WIDTH, by + B_SIZE / 2, "#ff007f");
       }
 
-      // Goal detection
       if (bx < 0) {
         score2++;
-        if (score2 >= WIN_SCORE) gameState = "GAMEOVER";
-        else resetBall();
+        if (score2 >= WIN_SCORE) gameState = "GAMEOVER"; else resetBall();
       } else if (bx > canvas.width) {
         score1++;
-        if (score1 >= WIN_SCORE) gameState = "GAMEOVER";
-        else resetBall();
+        if (score1 >= WIN_SCORE) gameState = "GAMEOVER"; else resetBall();
       }
 
-      // Particles lifecycle
       for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life--;
+        p.x += p.vx; p.y += p.vy; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
     }
@@ -275,82 +248,107 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Court Midline
-      ctx.strokeStyle = "#242b3d";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, canvas.height);
-      ctx.stroke();
+      ctx.strokeStyle = "#242b3d"; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
       ctx.setLineDash([]);
 
-      // Portal rendering
-      if (currentMode === "PORTAL") {
-        ctx.strokeStyle = "#a855f7";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(portals.pA.x, portals.pA.y, portals.pA.r, 0, Math.PI * 2);
-        ctx.stroke();
-
+      if (currentModeName === "PORTAL") {
+        ctx.strokeStyle = "#a855f7"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(portals.pA.x, portals.pA.y, portals.pA.r, 0, Math.PI * 2); ctx.stroke();
         ctx.strokeStyle = "#38bdf8";
-        ctx.beginPath();
-        ctx.arc(portals.pB.x, portals.pB.y, portals.pB.r, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(portals.pB.x, portals.pB.y, portals.pB.r, 0, Math.PI * 2); ctx.stroke();
       }
 
-      // Paddles
-      ctx.fillStyle = "#00f0ff";
-      ctx.fillRect(30, p1_y, P_WIDTH, P_HEIGHT);
+      ctx.fillStyle = "#00f0ff"; ctx.fillRect(30, p1_y, P_WIDTH, P_HEIGHT);
+      ctx.fillStyle = "#ff007f"; ctx.fillRect(canvas.width - 30 - P_WIDTH, p2_y, P_WIDTH, P_HEIGHT);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(bx, by, B_SIZE, B_SIZE);
 
-      ctx.fillStyle = "#ff007f";
-      ctx.fillRect(canvas.width - 30 - P_WIDTH, p2_y, P_WIDTH, P_HEIGHT);
-
-      // Ball
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(bx, by, B_SIZE, B_SIZE);
-
-      // Particles
       for (let p of particles) {
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, 3, 3);
+        ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3);
       }
 
-      // Score Display
-      ctx.font = "bold 44px Consolas, monospace";
-      ctx.fillStyle = "rgba(0, 240, 255, 0.4)";
-      ctx.fillText(score1, 220, 65);
-      ctx.fillStyle = "rgba(255, 0, 127, 0.4)";
-      ctx.fillText(score2, 550, 65);
+      ctx.font = "bold 40px Consolas, monospace";
+      ctx.fillStyle = "rgba(0, 240, 255, 0.3)"; ctx.fillText(score1, 220, 60);
+      ctx.fillStyle = "rgba(255, 0, 127, 0.3)"; ctx.fillText(score2, 550, 60);
 
-      // Overlays
+      // --- MENUS & OVERLAYS ---
       if (gameState === "MENU") {
-        ctx.fillStyle = "rgba(13, 15, 23, 0.85)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(13, 15, 23, 0.92)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.font = "bold 32px Consolas, monospace";
-        ctx.fillStyle = "#00f0ff";
-        ctx.textAlign = "center";
-        ctx.fillText("READY TO PLAY", canvas.width / 2, 220);
+        ctx.font = "bold 24px Consolas, monospace"; ctx.fillStyle = "#00f0ff"; ctx.textAlign = "center";
+        ctx.fillText("SELECT GAME MODE", canvas.width / 2, 70);
 
-        ctx.font = "16px Consolas, monospace";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText("Press [SPACEBAR] to Launch Match", canvas.width / 2, 270);
-        ctx.fillText("Select Modes using [1], [2], [3], [4] on keyboard", canvas.width / 2, 305);
+        // Render Mode Selection List
+        let startY = 110;
+        for (let key in MODES) {
+          let isSelected = (parseInt(key) === currentModeKey);
+          ctx.fillStyle = isSelected ? "#1a233a" : "#121520";
+          ctx.strokeStyle = isSelected ? "#00f0ff" : "#2d3548";
+          ctx.lineWidth = isSelected ? 2 : 1;
+          ctx.fillRect(150, startY, 500, 45);
+          ctx.strokeRect(150, startY, 500, 45);
+
+          ctx.font = "bold 15px Consolas, monospace";
+          ctx.fillStyle = isSelected ? "#00f0ff" : "#fff";
+          ctx.textAlign = "left";
+          ctx.fillText(`[${key}] ${MODES[key].name}`, 170, startY + 28);
+          
+          ctx.font = "12px Consolas, monospace";
+          ctx.fillStyle = "#8892b0";
+          ctx.fillText(MODES[key].desc, 320, startY + 28);
+
+          startY += 55;
+        }
+
+        ctx.font = "14px Consolas, monospace"; ctx.fillStyle = "#ffffff"; ctx.textAlign = "center";
+        ctx.fillText("Press [SPACEBAR] to Launch Match  |  Press [T] for Tutorial", canvas.width / 2, 420);
         ctx.textAlign = "start";
-      } else if (gameState === "GAMEOVER") {
-        ctx.fillStyle = "rgba(13, 15, 23, 0.85)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } 
+      else if (gameState === "TUTORIAL") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.95)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = "bold 24px Consolas, monospace"; ctx.fillStyle = "#00f0ff"; ctx.textAlign = "center";
+        ctx.fillText("HOW TO PLAY & TUTORIAL", canvas.width / 2, 70);
+
+        ctx.font = "14px Consolas, monospace"; ctx.fillStyle = "#e0e6ed"; ctx.textAlign = "left";
+        let tx = 100, ty = 120;
+        let guide = [
+          "• OBJECTIVE: Score 5 points against your opponent to win the match.",
+          "• PLAYER 1: Use [W] key to move Up, [S] key to move Down.",
+          "• PLAYER 2 / AI: Use [Arrow Up] and [Arrow Down] keys.",
+          "• DIFFICULTY: Ball speeds up by 7% with every successful paddle hit.",
+          "• PAUSE/MENU: Press [ESC] at any time during gameplay to pause.",
+          "• MODES: Select modes [1-4] in menu for unique physical mechanics."
+        ];
+        guide.forEach(line => {
+          ctx.fillText(line, tx, ty);
+          ty += 30;
+        });
+
+        ctx.font = "bold 14px Consolas, monospace"; ctx.fillStyle = "#ff007f"; ctx.textAlign = "center";
+        ctx.fillText("Press [ESC] to Return to Menu", canvas.width / 2, 420);
+        ctx.textAlign = "start";
+      }
+      else if (gameState === "PAUSED") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = "bold 32px Consolas, monospace"; ctx.fillStyle = "#ffaa00"; ctx.textAlign = "center";
+        ctx.fillText("GAME PAUSED", canvas.width / 2, 210);
+
+        ctx.font = "16px Consolas, monospace"; ctx.fillStyle = "#ffffff";
+        ctx.fillText("Press [SPACEBAR] to Resume Match", canvas.width / 2, 270);
+        ctx.fillText("Press [M] or [ESC] to Exit to Main Menu", canvas.width / 2, 310);
+        ctx.textAlign = "start";
+      }
+      else if (gameState === "GAMEOVER") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.88)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         let winMsg = score1 >= WIN_SCORE ? "PLAYER 1 WINS!" : "PLAYER 2 / AI WINS!";
-        ctx.font = "bold 32px Consolas, monospace";
-        ctx.fillStyle = score1 >= WIN_SCORE ? "#00f0ff" : "#ff007f";
-        ctx.textAlign = "center";
-        ctx.fillText(winMsg, canvas.width / 2, 220);
+        ctx.font = "bold 32px Consolas, monospace"; ctx.fillStyle = score1 >= WIN_SCORE ? "#00f0ff" : "#ff007f"; ctx.textAlign = "center";
+        ctx.fillText(winMsg, canvas.width / 2, 210);
 
-        ctx.font = "16px Consolas, monospace";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText("Press [SPACEBAR] to Restart Engine", canvas.width / 2, 280);
+        ctx.font = "16px Consolas, monospace"; ctx.fillStyle = "#ffffff";
+        ctx.fillText("Press [SPACEBAR] to Return to Menu", canvas.width / 2, 280);
         ctx.textAlign = "start";
       }
     }
