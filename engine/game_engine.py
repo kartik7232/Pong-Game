@@ -154,6 +154,7 @@ class PongEngine:
             self.ball.pos = new_pos
             self.ball.vel = new_vel
             self.ball.hit_count += 1
+            self.ball.last_hit_player = 1
             self._trigger_event(EventType.PADDLE_HIT, new_pos.x, new_pos.y, True, speed)
 
         # Test collision with Right Paddle (only if ball is moving rightwards towards paddle)
@@ -168,6 +169,7 @@ class PongEngine:
             self.ball.pos = new_pos
             self.ball.vel = new_vel
             self.ball.hit_count += 1
+            self.ball.last_hit_player = 2
             self._trigger_event(EventType.PADDLE_HIT, new_pos.x, new_pos.y, False, speed)
 
         # 5. Goal Post & Out of Bounds Detection
@@ -187,10 +189,16 @@ class PongEngine:
         self.last_update_duration_ms = (end_time - start_time) * 1000.0
         self.frame_count += 1
 
+    def reset_ball_neutral(self) -> None:
+        """Re-serves the ball from center without scoring any points (used by Laser hit)."""
+        import random
+        self.ball.reset(serve_left=random.choice([True, False]))
+
     def reset_game(self) -> None:
         """Resets scores and entity states for a fresh match."""
         self.score_p1 = 0
         self.score_p2 = 0
-        self.left_paddle.center_y = SCREEN_HEIGHT * 0.5
-        self.right_paddle.center_y = SCREEN_HEIGHT * 0.5
+        self.left_paddle.reset_position(SCREEN_HEIGHT * 0.5)
+        self.right_paddle.reset_position(SCREEN_HEIGHT * 0.5)
         self.ball.reset(serve_left=True)
+

@@ -11,7 +11,7 @@ boxes for Paddles and the Ball.
 
 import math
 import random
-from typing import Tuple
+from typing import Tuple, Optional
 from engine.config import (
     PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_SPEED,
     BALL_RADIUS, INITIAL_BALL_SPEED, TOP_BOUND, BOTTOM_BOUND,
@@ -27,6 +27,7 @@ class Paddle:
     def __init__(self, center_x: float, center_y: float, is_left: bool):
         self.center_x: float = float(center_x)
         self.center_y: float = float(center_y)
+        self.base_center_x: float = float(center_x)
         self.width: float = PADDLE_WIDTH
         self.height: float = PADDLE_HEIGHT
         self.speed: float = PADDLE_SPEED
@@ -34,6 +35,9 @@ class Paddle:
         
         # Velocity control (-1: up, 0: stationary, +1: down)
         self.move_dir: int = 0
+
+        # Powerup modifiers
+        self.frozen_timer: float = 0.0
 
     @property
     def aabb(self) -> AABB:
@@ -47,11 +51,43 @@ class Paddle:
             max_y=self.center_y + half_h
         )
 
+    def push(self, amount: float) -> None:
+        """Pushes paddle toward its respective boundary wall, clamped within screen bounds."""
+        half_w = self.width * 0.5
+        if self.is_left:
+            # Pushed toward left wall
+            self.center_x = max(TOP_BOUND + half_w, self.center_x - amount)
+        else:
+            # Pushed toward right wall
+            self.center_x = min(SCREEN_WIDTH - TOP_BOUND - half_w, self.center_x + amount)
+
+    def reset_position(self, default_y: Optional[float] = None) -> None:
+        """Resets paddle horizontal position and optional vertical center."""
+        self.center_x = self.base_center_x
+        if default_y is not None:
+            self.center_y = default_y
+        self.frozen_timer = 0.0
+        self.move_dir = 0
+
     def update(self, dt: float) -> None:
         """
         Translates paddle vertically based on movement direction and delta time dt.
-        Clamps position to enforce playfield vertical boundaries.
+        If frozen, translation is completely suspended for the timer duration.
         """
+        # Update frozen status
+        if self.frozen_timer > 0.0:
+            self.frozen_timer = max(0.0, self.frozen_timer - dt)
+            return
+
+        # Smooth recovery of horizontal displacement back to base_center_x
+        if abs(self.center_x - self.base_center_x) > 0.1:
+            diff = self.base_center_x - self.center_x
+            recovery_speed = 35.0  # px/s recovery
+            step = math.copysign(min(abs(diff), recovery_speed * dt), diff)
+            self.center_x += step
+        else:
+            self.center_x = self.base_center_x
+
         if self.move_dir != 0:
             self.center_y += self.move_dir * self.speed * dt
 
@@ -76,6 +112,8 @@ class Ball:
         self.vel: Vector2D = Vector2D(0.0, 0.0)
         self.radius: float = BALL_RADIUS
         self.hit_count: int = 0
+        self.last_hit_player: Optional[int] = None
+        self.is_visible: bool = True
         self.reset(serve_left=random.choice([True, False]))
 
     @property
@@ -100,6 +138,8 @@ class Ball:
         """
         self.pos = Vector2D(SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5)
         self.hit_count = 0
+        self.last_hit_player = None
+        self.is_visible = True
 
         # Random angle between -30° and +30° (-pi/6 to +pi/6)
         launch_angle = random.uniform(-math.pi / 6.0, math.pi / 6.0)
