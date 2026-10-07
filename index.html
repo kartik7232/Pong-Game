@@ -46,11 +46,10 @@
       box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
       max-width: 95vw;
       height: auto;
-      cursor: pointer;
     }
     .controls {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       margin-top: 6px;
       font-size: 10px;
       color: #7b88a1;
@@ -62,28 +61,37 @@
       border-radius: 3px;
       border: 1px solid #3d4866;
     }
+    /* Mobile Touch Overlay Buttons */
     .touch-controls {
-      display: flex;
+      display: none;
       width: 100%;
       max-width: 800px;
       justify-content: space-between;
-      padding: 6px 15px;
-      margin-top: 4px;
+      padding: 8px 15px;
+      margin-top: 5px;
     }
     .touch-group { display: flex; gap: 10px; }
     .t-btn {
       background: #1a1e2d;
       color: #00f0ff;
       border: 1px solid #00f0ff;
-      font-size: 14px;
+      font-size: 18px;
       font-weight: bold;
-      padding: 8px 16px;
+      padding: 10px 20px;
       border-radius: 6px;
       outline: none;
-      cursor: pointer;
       user-select: none;
     }
     .t-btn:active { background: #00f0ff; color: #121520; }
+    .menu-touch {
+      display: none;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    @media (max-width: 900px) {
+      .touch-controls { display: flex; }
+      .menu-touch { display: flex; }
+    }
   </style>
 </head>
 <body>
@@ -97,20 +105,26 @@
 
   <canvas id="gameCanvas" width="800" height="450"></canvas>
 
-  <div class="touch-controls">
+  <!-- Mobile On-Screen Buttons -->
+  <div class="touch-controls" id="gameTouchControls">
     <div class="touch-group">
-      <button class="t-btn" id="btnStart">SPACE / START</button>
-      <button class="t-btn" id="btnTut">TUTORIAL</button>
+      <button class="t-btn" id="btnUp">▲ UP</button>
+      <button class="t-btn" id="btnDown">▼ DOWN</button>
     </div>
     <div class="touch-group">
-      <button class="t-btn" style="border-color:#ff007f; color:#ff007f;" id="btnPause">PAUSE / ESC</button>
+      <button class="t-btn" style="border-color:#ff007f; color:#ff007f;" id="btnPause">ESC / PAUSE</button>
     </div>
   </div>
 
+  <div class="menu-touch" id="menuTouchControls">
+    <button class="t-btn" id="btnStart">SPACE / START</button>
+    <button class="t-btn" id="btnTut">TUTORIAL</button>
+  </div>
+
   <div class="controls">
-    <div><kbd>Mouse / W/S</kbd> Move Paddle</div>
-    <div><kbd>Click Menu Items</kbd> Choose Mode</div>
-    <div><kbd>1-4 / ESC</kbd> Shortcuts</div>
+    <div><kbd>W/S</kbd> or Mobile Buttons</div>
+    <div><kbd>1-4</kbd> Modes</div>
+    <div><kbd>ESC</kbd> Pause</div>
   </div>
 
   <script>
@@ -138,7 +152,6 @@
     let gameState = "MENU"; 
     let keys = {};
     let particles = [];
-    let mouseControlActive = false;
 
     const portals = {
       pA: { x: 400, y: 80, r: 18, target: { x: 400, y: 370 } },
@@ -162,37 +175,7 @@
     });
     window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
-    // Mouse & Touch Interaction on Canvas
-    canvas.addEventListener("mousemove", e => {
-      mouseControlActive = true;
-      let rect = canvas.getBoundingClientRect();
-      let root = document.documentElement;
-      let mouseY = e.clientY - rect.top - (canvas.clientHeight / 2 - canvas.height / 2); // account for scaling if any
-      // Map mouse position directly to canvas coordinate space
-      let scaleY = canvas.height / canvas.clientHeight;
-      let canvasMouseY = (e.clientY - rect.top) * scaleY;
-      p1_y = canvasMouseY - P_HEIGHT / 2;
-      p1_y = Math.max(0, Math.min(canvas.height - P_HEIGHT, p1_y));
-    });
-
-    canvas.addEventListener("click", e => {
-      let rect = canvas.getBoundingClientRect();
-      let scaleX = canvas.width / canvas.clientWidth;
-      let scaleY = canvas.height / canvas.clientHeight;
-      let cx = (e.clientX - rect.left) * scaleX;
-      let cy = (e.clientY - rect.top) * scaleY;
-
-      if (gameState === "MENU") {
-        let startY = 75;
-        for (let key in MODES) {
-          if (cx >= 80 && cx <= 720 && cy >= startY && cy <= startY + 42) {
-            setMode(parseInt(key));
-          }
-          startY += 50;
-        }
-      }
-    });
-
+    // Touch / Mobile Button Bindings
     function handleEscape() {
       if (gameState === "PLAYING") gameState = "PAUSED";
       else if (gameState === "PAUSED" || gameState === "TUTORIAL") gameState = "MENU";
@@ -211,7 +194,12 @@
       modeLabel.innerText = currentModeName;
     }
 
-    // Button Event Bindings
+    // Hook touch button events
+    document.getElementById("btnUp").addEventListener("touchstart", (e) => { e.preventDefault(); keys["w"] = true; });
+    document.getElementById("btnUp").addEventListener("touchend", (e) => { e.preventDefault(); keys["w"] = false; });
+    document.getElementById("btnDown").addEventListener("touchstart", (e) => { e.preventDefault(); keys["s"] = true; });
+    document.getElementById("btnDown").addEventListener("touchend", (e) => { e.preventDefault(); keys["s"] = false; });
+    
     document.getElementById("btnPause").addEventListener("click", () => { handleEscape(); });
     document.getElementById("btnStart").addEventListener("click", () => {
       if (gameState === "MENU" || gameState === "GAMEOVER") startGame();
@@ -241,12 +229,8 @@
     function update() {
       if (gameState !== "PLAYING") return;
 
-      // Keyboard movement backup if mouse isn't moving
-      if (!mouseControlActive) {
-        if (keys["w"] && p1_y > 0) p1_y -= pSpeed;
-        if (keys["s"] && p1_y < canvas.height - P_HEIGHT) p1_y += pSpeed;
-      }
-      mouseControlActive = false; // reset flag each frame
+      if (keys["w"] && p1_y > 0) p1_y -= pSpeed;
+      if (keys["s"] && p1_y < canvas.height - P_HEIGHT) p1_y += pSpeed;
 
       // AI opponent tracking
       let p2Center = p2_y + P_HEIGHT / 2;
@@ -299,4 +283,124 @@
         let offset = (by + B_SIZE / 2) - (p2_y + P_HEIGHT / 2);
         bvy = offset * 0.18;
         if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 5;
-        spawn
+        spawnHitParticles(canvas.width - 30 - P_WIDTH, by + B_SIZE / 2, "#ff007f");
+      }
+
+      if (bx < 0) {
+        score2++;
+        if (score2 >= WIN_SCORE) gameState = "GAMEOVER"; else resetBall();
+      } else if (bx > canvas.width) {
+        score1++;
+        if (score1 >= WIN_SCORE) gameState = "GAMEOVER"; else resetBall();
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#242b3d"; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+      ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (currentModeName === "PORTAL") {
+        ctx.strokeStyle = "#a855f7"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(portals.pA.x, portals.pA.y, portals.pA.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.beginPath(); ctx.arc(portals.pB.x, portals.pB.y, portals.pB.r, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      ctx.fillStyle = "#00f0ff"; ctx.fillRect(30, p1_y, P_WIDTH, P_HEIGHT);
+      ctx.fillStyle = "#ff007f"; ctx.fillRect(canvas.width - 30 - P_WIDTH, p2_y, P_WIDTH, P_HEIGHT);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(bx, by, B_SIZE, B_SIZE);
+
+      for (let p of particles) {
+        ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3);
+      }
+
+      ctx.font = "bold 36px Consolas, monospace";
+      ctx.fillStyle = "rgba(0, 240, 255, 0.3)"; ctx.fillText(score1, 210, 50);
+      ctx.fillStyle = "rgba(255, 0, 127, 0.3)"; ctx.fillText(score2, 550, 50);
+
+      if (gameState === "MENU") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.94)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "bold 20px Consolas, monospace"; ctx.fillStyle = "#00f0ff"; ctx.textAlign = "center";
+        ctx.fillText("SELECT GAME MODE", canvas.width / 2, 45);
+
+        let startY = 75;
+        for (let key in MODES) {
+          let isSelected = (parseInt(key) === currentModeKey);
+          ctx.fillStyle = isSelected ? "#1a233a" : "#121520";
+          ctx.strokeStyle = isSelected ? "#00f0ff" : "#2d3548";
+          ctx.lineWidth = isSelected ? 2 : 1;
+          ctx.fillRect(80, startY, 640, 42);
+          ctx.strokeRect(80, startY, 640, 42);
+
+          ctx.font = "bold 14px Consolas, monospace";
+          ctx.fillStyle = isSelected ? "#00f0ff" : "#fff";
+          ctx.textAlign = "left";
+          ctx.fillText(`[${key}] ${MODES[key].name}`, 95, startY + 26);
+          
+          ctx.font = "11px Consolas, monospace";
+          ctx.fillStyle = "#8892b0";
+          ctx.fillText(MODES[key].desc, 230, startY + 26);
+
+          startY += 50;
+        }
+
+        ctx.font = "12px Consolas, monospace"; ctx.fillStyle = "#ffffff"; ctx.textAlign = "center";
+        ctx.fillText("Tap 'SPACE / START' below or press keys [1-4]", canvas.width / 2, 395);
+        ctx.textAlign = "start";
+      } 
+      else if (gameState === "TUTORIAL") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.96)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "bold 22px Consolas, monospace"; ctx.fillStyle = "#00f0ff"; ctx.textAlign = "center";
+        ctx.fillText("HOW TO PLAY", canvas.width / 2, 50);
+
+        ctx.font = "13px Consolas, monospace"; ctx.fillStyle = "#e0e6ed"; ctx.textAlign = "left";
+        let tx = 60, ty = 100;
+        let guide = [
+          "• OBJECTIVE: Score 5 points against the AI to win.",
+          "• CONTROLS: Use [W/S] keys or mobile UP/DOWN touch buttons.",
+          "• SPEED: Ball accelerates by 7% with every paddle hit.",
+          "• MODES: Choose from Classic, Chaos, Portal, or Wind in the menu."
+        ];
+        guide.forEach(line => { ctx.fillText(line, tx, ty); ty += 35; });
+
+        ctx.font = "bold 13px Consolas, monospace"; ctx.fillStyle = "#ff007f"; ctx.textAlign = "center";
+        ctx.fillText("Tap Tutorial button again to return", canvas.width / 2, 380);
+        ctx.textAlign = "start";
+      }
+      else if (gameState === "PAUSED") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.88)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "bold 28px Consolas, monospace"; ctx.fillStyle = "#ffaa00"; ctx.textAlign = "center";
+        ctx.fillText("GAME PAUSED", canvas.width / 2, 180);
+        ctx.font = "14px Consolas, monospace"; ctx.fillStyle = "#ffffff";
+        ctx.fillText("Press Start or Space to Resume", canvas.width / 2, 230);
+        ctx.textAlign = "start";
+      }
+      else if (gameState === "GAMEOVER") {
+        ctx.fillStyle = "rgba(13, 15, 23, 0.9)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let winMsg = score1 >= WIN_SCORE ? "PLAYER 1 WINS!" : "AI WINS!";
+        ctx.font = "bold 28px Consolas, monospace"; ctx.fillStyle = score1 >= WIN_SCORE ? "#00f0ff" : "#ff007f"; ctx.textAlign = "center";
+        ctx.fillText(winMsg, canvas.width / 2, 180);
+        ctx.font = "14px Consolas, monospace"; ctx.fillStyle = "#ffffff";
+        ctx.fillText("Press Start to return to Menu", canvas.width / 2, 230);
+        ctx.textAlign = "start";
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+  </script>
+</body>
+</html>
