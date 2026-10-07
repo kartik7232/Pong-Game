@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Modular Pong Arcade Engine</title>
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; touch-action: manipulation; }
     body {
       margin: 0;
       background: #0d0f17;
@@ -18,23 +18,23 @@
       font-family: 'Consolas', 'Courier New', monospace;
       overflow: hidden;
     }
-    header { text-align: center; margin-bottom: 6px; }
+    header { text-align: center; margin-bottom: 4px; }
     h1 {
       margin: 0;
-      font-size: 24px;
-      letter-spacing: 3px;
+      font-size: 20px;
+      letter-spacing: 2px;
       color: #00f0ff;
-      text-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
     }
     .hud {
       display: flex;
-      gap: 15px;
+      gap: 10px;
       margin-bottom: 4px;
-      font-size: 12px;
+      font-size: 11px;
     }
     .badge {
       background: #1a1e2d;
-      padding: 2px 8px;
+      padding: 2px 6px;
       border-radius: 4px;
       border: 1px solid #2d3548;
     }
@@ -43,22 +43,47 @@
       border: 2px solid #242b3d;
       border-radius: 6px;
       background: #121520;
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+      max-width: 95vw;
+      height: auto;
+      cursor: pointer;
     }
     .controls {
       display: flex;
-      gap: 15px;
-      margin-top: 8px;
-      font-size: 11px;
+      gap: 12px;
+      margin-top: 6px;
+      font-size: 10px;
       color: #7b88a1;
     }
     kbd {
       background: #242b3d;
       color: #fff;
-      padding: 2px 5px;
+      padding: 2px 4px;
       border-radius: 3px;
       border: 1px solid #3d4866;
     }
+    .touch-controls {
+      display: flex;
+      width: 100%;
+      max-width: 800px;
+      justify-content: space-between;
+      padding: 6px 15px;
+      margin-top: 4px;
+    }
+    .touch-group { display: flex; gap: 10px; }
+    .t-btn {
+      background: #1a1e2d;
+      color: #00f0ff;
+      border: 1px solid #00f0ff;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 8px 16px;
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+      user-select: none;
+    }
+    .t-btn:active { background: #00f0ff; color: #121520; }
   </style>
 </head>
 <body>
@@ -66,17 +91,26 @@
     <h1>RETRO PONG ENGINE</h1>
     <div class="hud">
       <div class="badge">Mode: <span id="modeName">CLASSIC</span></div>
-      <div class="badge">Multiplier: <span id="speedMultiplier">1.0x</span></div>
+      <div class="badge">Mult: <span id="speedMultiplier">1.0x</span></div>
     </div>
   </header>
 
-  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+  <div class="touch-controls">
+    <div class="touch-group">
+      <button class="t-btn" id="btnStart">SPACE / START</button>
+      <button class="t-btn" id="btnTut">TUTORIAL</button>
+    </div>
+    <div class="touch-group">
+      <button class="t-btn" style="border-color:#ff007f; color:#ff007f;" id="btnPause">PAUSE / ESC</button>
+    </div>
+  </div>
 
   <div class="controls">
-    <div><kbd>W/S</kbd> P1</div>
-    <div><kbd>↑/↓</kbd> P2/AI</div>
-    <div><kbd>ESC</kbd> Pause/Menu</div>
-    <div><kbd>1-4</kbd> Switch Modes</div>
+    <div><kbd>Mouse / W/S</kbd> Move Paddle</div>
+    <div><kbd>Click Menu Items</kbd> Choose Mode</div>
+    <div><kbd>1-4 / ESC</kbd> Shortcuts</div>
   </div>
 
   <script>
@@ -95,70 +129,111 @@
     let currentModeKey = 1;
     let currentModeName = "CLASSIC";
 
-    // Engine entities
-    const P_WIDTH = 14, P_HEIGHT = 80;
-    let p1_y = 210, p2_y = 210, pSpeed = 7;
+    const P_WIDTH = 14, P_HEIGHT = 75;
+    let p1_y = 187, p2_y = 187, pSpeed = 7;
     const B_SIZE = 12;
-    let bx = 400, by = 250, bvx = 5, bvy = 5, baseSpeed = 5, speedMult = 1.0;
+    let bx = 400, by = 225, bvx = 5, bvy = 5, baseSpeed = 5, speedMult = 1.0;
     let score1 = 0, score2 = 0, WIN_SCORE = 5;
     
-    // States: "MENU", "TUTORIAL", "PLAYING", "PAUSED", "GAMEOVER"
     let gameState = "MENU"; 
     let keys = {};
     let particles = [];
+    let mouseControlActive = false;
 
-    // Portals & Wind
     const portals = {
-      pA: { x: 400, y: 90, r: 20, target: { x: 400, y: 410 } },
-      pB: { x: 400, y: 410, r: 20, target: { x: 400, y: 90 } }
+      pA: { x: 400, y: 80, r: 18, target: { x: 400, y: 370 } },
+      pB: { x: 400, y: 370, r: 18, target: { x: 400, y: 80 } }
     };
     let portalCooldown = 0, windVectorY = 0, windTimer = 0;
 
+    // Keyboard Listeners
     window.addEventListener("keydown", e => {
       keys[e.key.toLowerCase()] = true;
-
-      if (e.key === "Escape") {
-        if (gameState === "PLAYING") gameState = "PAUSED";
-        else if (gameState === "PAUSED" || gameState === "TUTORIAL") gameState = "MENU";
+      if (e.key === "Escape") handleEscape();
+      if (gameState === "MENU") {
+        if (["1","2","3","4"].includes(e.key)) setMode(parseInt(e.key));
+        if (e.key.toLowerCase() === "t") gameState = "TUTORIAL";
+        if (e.code === "Space") startGame();
+      } else if (gameState === "PAUSED" && e.code === "Space") {
+        gameState = "PLAYING";
+      } else if (gameState === "GAMEOVER" && (e.code === "Space" || e.key === "Escape")) {
+        gameState = "MENU";
       }
+    });
+    window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+
+    // Mouse & Touch Interaction on Canvas
+    canvas.addEventListener("mousemove", e => {
+      mouseControlActive = true;
+      let rect = canvas.getBoundingClientRect();
+      let root = document.documentElement;
+      let mouseY = e.clientY - rect.top - (canvas.clientHeight / 2 - canvas.height / 2); // account for scaling if any
+      // Map mouse position directly to canvas coordinate space
+      let scaleY = canvas.height / canvas.clientHeight;
+      let canvasMouseY = (e.clientY - rect.top) * scaleY;
+      p1_y = canvasMouseY - P_HEIGHT / 2;
+      p1_y = Math.max(0, Math.min(canvas.height - P_HEIGHT, p1_y));
+    });
+
+    canvas.addEventListener("click", e => {
+      let rect = canvas.getBoundingClientRect();
+      let scaleX = canvas.width / canvas.clientWidth;
+      let scaleY = canvas.height / canvas.clientHeight;
+      let cx = (e.clientX - rect.left) * scaleX;
+      let cy = (e.clientY - rect.top) * scaleY;
 
       if (gameState === "MENU") {
-        if (e.key === "1" || e.key === "2" || e.key === "3" || e.key === "4") {
-          currentModeKey = parseInt(e.key);
-          currentModeName = MODES[currentModeKey].name;
-          modeLabel.innerText = currentModeName;
+        let startY = 75;
+        for (let key in MODES) {
+          if (cx >= 80 && cx <= 720 && cy >= startY && cy <= startY + 42) {
+            setMode(parseInt(key));
+          }
+          startY += 50;
         }
-        if (e.key === "t" || e.key === "T") gameState = "TUTORIAL";
-        if (e.code === "Space") {
-          score1 = 0; score2 = 0; speedMult = 1.0;
-          resetBall();
-          gameState = "PLAYING";
-        }
-      } else if (gameState === "PAUSED") {
-        if (e.code === "Space") gameState = "PLAYING"; // Resume
-        if (e.key.toLowerCase() === "m") gameState = "MENU"; // Return to menu
-      } else if (gameState === "GAMEOVER") {
-        if (e.code === "Space" || e.key === "Escape") gameState = "MENU";
       }
     });
 
-    window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+    function handleEscape() {
+      if (gameState === "PLAYING") gameState = "PAUSED";
+      else if (gameState === "PAUSED" || gameState === "TUTORIAL") gameState = "MENU";
+      else if (gameState === "MENU") gameState = "TUTORIAL";
+    }
+
+    function startGame() {
+      score1 = 0; score2 = 0; speedMult = 1.0;
+      resetBall();
+      gameState = "PLAYING";
+    }
+
+    function setMode(key) {
+      currentModeKey = key;
+      currentModeName = MODES[key].name;
+      modeLabel.innerText = currentModeName;
+    }
+
+    // Button Event Bindings
+    document.getElementById("btnPause").addEventListener("click", () => { handleEscape(); });
+    document.getElementById("btnStart").addEventListener("click", () => {
+      if (gameState === "MENU" || gameState === "GAMEOVER") startGame();
+      else if (gameState === "PAUSED") gameState = "PLAYING";
+    });
+    document.getElementById("btnTut").addEventListener("click", () => {
+      gameState = gameState === "TUTORIAL" ? "MENU" : "TUTORIAL";
+    });
 
     function resetBall() {
-      bx = canvas.width / 2;
-      by = canvas.height / 2;
-      speedMult = 1.0;
-      speedLabel.innerText = "1.0x";
+      bx = canvas.width / 2; by = canvas.height / 2;
+      speedMult = 1.0; speedLabel.innerText = "1.0x";
       bvx = baseSpeed * (Math.random() > 0.5 ? 1 : -1);
       bvy = (Math.random() * 4 - 2);
       portalCooldown = 0;
     }
 
     function spawnHitParticles(x, y, color) {
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 6; i++) {
         particles.push({
-          x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
-          life: 18, color
+          x, y, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
+          life: 15, color
         });
       }
     }
@@ -166,29 +241,26 @@
     function update() {
       if (gameState !== "PLAYING") return;
 
-      if (keys["w"] && p1_y > 0) p1_y -= pSpeed;
-      if (keys["s"] && p1_y < canvas.height - P_HEIGHT) p1_y += pSpeed;
-
-      if (keys["arrowup"] && p2_y > 0) p2_y -= pSpeed;
-      else if (keys["arrowdown"] && p2_y < canvas.height - P_HEIGHT) p2_y += pSpeed;
-      else {
-        let p2Center = p2_y + P_HEIGHT / 2;
-        if (p2Center < by - 8) p2_y += Math.min(5.6, by - p2Center);
-        else if (p2Center > by + 8) p2_y -= Math.min(5.6, p2Center - by);
-        p2_y = Math.max(0, Math.min(canvas.height - P_HEIGHT, p2_y));
+      // Keyboard movement backup if mouse isn't moving
+      if (!mouseControlActive) {
+        if (keys["w"] && p1_y > 0) p1_y -= pSpeed;
+        if (keys["s"] && p1_y < canvas.height - P_HEIGHT) p1_y += pSpeed;
       }
+      mouseControlActive = false; // reset flag each frame
+
+      // AI opponent tracking
+      let p2Center = p2_y + P_HEIGHT / 2;
+      if (p2Center < by - 6) p2_y += Math.min(5.4, by - p2Center);
+      else if (p2Center > by + 6) p2_y -= Math.min(5.4, p2Center - by);
+      p2_y = Math.max(0, Math.min(canvas.height - P_HEIGHT, p2_y));
 
       if (currentModeName === "WIND") {
         windTimer++;
-        if (windTimer > 120) {
-          windVectorY = (Math.random() - 0.5) * 0.45;
-          windTimer = 0;
-        }
+        if (windTimer > 120) { windVectorY = (Math.random() - 0.5) * 0.4; windTimer = 0; }
         bvy += windVectorY;
       }
 
-      bx += bvx;
-      by += bvy;
+      bx += bvx; by += bvy;
 
       if (currentModeName === "PORTAL") {
         if (portalCooldown > 0) portalCooldown--;
@@ -196,11 +268,11 @@
           let distA = Math.hypot(bx - portals.pA.x, by - portals.pA.y);
           let distB = Math.hypot(bx - portals.pB.x, by - portals.pB.y);
           if (distA < portals.pA.r) {
-            bx = portals.pA.target.x; by = portals.pA.target.y + (bvy > 0 ? 25 : -25);
-            portalCooldown = 40; spawnHitParticles(bx, by, "#a855f7");
+            bx = portals.pA.target.x; by = portals.pA.target.y + (bvy > 0 ? 20 : -20);
+            portalCooldown = 35; spawnHitParticles(bx, by, "#a855f7");
           } else if (distB < portals.pB.r) {
-            bx = portals.pB.target.x; by = portals.pB.target.y + (bvy > 0 ? 25 : -25);
-            portalCooldown = 40; spawnHitParticles(bx, by, "#a855f7");
+            bx = portals.pB.target.x; by = portals.pB.target.y + (bvy > 0 ? 20 : -20);
+            portalCooldown = 35; spawnHitParticles(bx, by, "#a855f7");
           }
         }
       }
@@ -215,7 +287,7 @@
         bvx = Math.abs(bvx) * 1.07;
         let offset = (by + B_SIZE / 2) - (p1_y + P_HEIGHT / 2);
         bvy = offset * 0.18;
-        if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 6;
+        if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 5;
         spawnHitParticles(30 + P_WIDTH, by + B_SIZE / 2, "#00f0ff");
       }
 
@@ -226,139 +298,5 @@
         bvx = -Math.abs(bvx) * 1.07;
         let offset = (by + B_SIZE / 2) - (p2_y + P_HEIGHT / 2);
         bvy = offset * 0.18;
-        if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 6;
-        spawnHitParticles(canvas.width - 30 - P_WIDTH, by + B_SIZE / 2, "#ff007f");
-      }
-
-      if (bx < 0) {
-        score2++;
-        if (score2 >= WIN_SCORE) gameState = "GAMEOVER"; else resetBall();
-      } else if (bx > canvas.width) {
-        score1++;
-        if (score1 >= WIN_SCORE) gameState = "GAMEOVER"; else resetBall();
-      }
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      ctx.strokeStyle = "#242b3d"; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
-      ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke();
-      ctx.setLineDash([]);
-
-      if (currentModeName === "PORTAL") {
-        ctx.strokeStyle = "#a855f7"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(portals.pA.x, portals.pA.y, portals.pA.r, 0, Math.PI * 2); ctx.stroke();
-        ctx.strokeStyle = "#38bdf8";
-        ctx.beginPath(); ctx.arc(portals.pB.x, portals.pB.y, portals.pB.r, 0, Math.PI * 2); ctx.stroke();
-      }
-
-      ctx.fillStyle = "#00f0ff"; ctx.fillRect(30, p1_y, P_WIDTH, P_HEIGHT);
-      ctx.fillStyle = "#ff007f"; ctx.fillRect(canvas.width - 30 - P_WIDTH, p2_y, P_WIDTH, P_HEIGHT);
-      ctx.fillStyle = "#ffffff"; ctx.fillRect(bx, by, B_SIZE, B_SIZE);
-
-      for (let p of particles) {
-        ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3);
-      }
-
-      ctx.font = "bold 40px Consolas, monospace";
-      ctx.fillStyle = "rgba(0, 240, 255, 0.3)"; ctx.fillText(score1, 220, 60);
-      ctx.fillStyle = "rgba(255, 0, 127, 0.3)"; ctx.fillText(score2, 550, 60);
-
-      // --- MENUS & OVERLAYS ---
-      if (gameState === "MENU") {
-        ctx.fillStyle = "rgba(13, 15, 23, 0.92)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.font = "bold 24px Consolas, monospace"; ctx.fillStyle = "#00f0ff"; ctx.textAlign = "center";
-        ctx.fillText("SELECT GAME MODE", canvas.width / 2, 70);
-
-        // Render Mode Selection List
-        let startY = 110;
-        for (let key in MODES) {
-          let isSelected = (parseInt(key) === currentModeKey);
-          ctx.fillStyle = isSelected ? "#1a233a" : "#121520";
-          ctx.strokeStyle = isSelected ? "#00f0ff" : "#2d3548";
-          ctx.lineWidth = isSelected ? 2 : 1;
-          ctx.fillRect(150, startY, 500, 45);
-          ctx.strokeRect(150, startY, 500, 45);
-
-          ctx.font = "bold 15px Consolas, monospace";
-          ctx.fillStyle = isSelected ? "#00f0ff" : "#fff";
-          ctx.textAlign = "left";
-          ctx.fillText(`[${key}] ${MODES[key].name}`, 170, startY + 28);
-          
-          ctx.font = "12px Consolas, monospace";
-          ctx.fillStyle = "#8892b0";
-          ctx.fillText(MODES[key].desc, 320, startY + 28);
-
-          startY += 55;
-        }
-
-        ctx.font = "14px Consolas, monospace"; ctx.fillStyle = "#ffffff"; ctx.textAlign = "center";
-        ctx.fillText("Press [SPACEBAR] to Launch Match  |  Press [T] for Tutorial", canvas.width / 2, 420);
-        ctx.textAlign = "start";
-      } 
-      else if (gameState === "TUTORIAL") {
-        ctx.fillStyle = "rgba(13, 15, 23, 0.95)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.font = "bold 24px Consolas, monospace"; ctx.fillStyle = "#00f0ff"; ctx.textAlign = "center";
-        ctx.fillText("HOW TO PLAY & TUTORIAL", canvas.width / 2, 70);
-
-        ctx.font = "14px Consolas, monospace"; ctx.fillStyle = "#e0e6ed"; ctx.textAlign = "left";
-        let tx = 100, ty = 120;
-        let guide = [
-          "• OBJECTIVE: Score 5 points against your opponent to win the match.",
-          "• PLAYER 1: Use [W] key to move Up, [S] key to move Down.",
-          "• PLAYER 2 / AI: Use [Arrow Up] and [Arrow Down] keys.",
-          "• DIFFICULTY: Ball speeds up by 7% with every successful paddle hit.",
-          "• PAUSE/MENU: Press [ESC] at any time during gameplay to pause.",
-          "• MODES: Select modes [1-4] in menu for unique physical mechanics."
-        ];
-        guide.forEach(line => {
-          ctx.fillText(line, tx, ty);
-          ty += 30;
-        });
-
-        ctx.font = "bold 14px Consolas, monospace"; ctx.fillStyle = "#ff007f"; ctx.textAlign = "center";
-        ctx.fillText("Press [ESC] to Return to Menu", canvas.width / 2, 420);
-        ctx.textAlign = "start";
-      }
-      else if (gameState === "PAUSED") {
-        ctx.fillStyle = "rgba(13, 15, 23, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.font = "bold 32px Consolas, monospace"; ctx.fillStyle = "#ffaa00"; ctx.textAlign = "center";
-        ctx.fillText("GAME PAUSED", canvas.width / 2, 210);
-
-        ctx.font = "16px Consolas, monospace"; ctx.fillStyle = "#ffffff";
-        ctx.fillText("Press [SPACEBAR] to Resume Match", canvas.width / 2, 270);
-        ctx.fillText("Press [M] or [ESC] to Exit to Main Menu", canvas.width / 2, 310);
-        ctx.textAlign = "start";
-      }
-      else if (gameState === "GAMEOVER") {
-        ctx.fillStyle = "rgba(13, 15, 23, 0.88)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        let winMsg = score1 >= WIN_SCORE ? "PLAYER 1 WINS!" : "PLAYER 2 / AI WINS!";
-        ctx.font = "bold 32px Consolas, monospace"; ctx.fillStyle = score1 >= WIN_SCORE ? "#00f0ff" : "#ff007f"; ctx.textAlign = "center";
-        ctx.fillText(winMsg, canvas.width / 2, 210);
-
-        ctx.font = "16px Consolas, monospace"; ctx.fillStyle = "#ffffff";
-        ctx.fillText("Press [SPACEBAR] to Return to Menu", canvas.width / 2, 280);
-        ctx.textAlign = "start";
-      }
-    }
-
-    function gameLoop() {
-      update();
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
-    gameLoop();
-  </script>
-</body>
-</html>
+        if (currentModeName === "CHAOS") bvy += (Math.random() - 0.5) * 5;
+        spawn
