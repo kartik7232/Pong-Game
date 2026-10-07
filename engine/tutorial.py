@@ -15,7 +15,7 @@ from engine.config import (
     COLOR_MENU_ACCENT, COLOR_PORTAL_A, COLOR_PORTAL_B,
     COLOR_ORB_FREEZE, COLOR_ORB_LASER, COLOR_ORB_GHOST,
     COLOR_PADDLE_P1, COLOR_PADDLE_P2, COLOR_BALL, COLOR_CENTER_LINE,
-    COLOR_MODAL_BG
+    COLOR_MODAL_BG, PORTAL_RX, PORTAL_RY
 )
 
 
@@ -224,23 +224,39 @@ class TutorialViewer:
             y += 26
 
         # Animated illustration
-        demo_rect = pygame.Rect(panel.x + 35, y + 10, panel.width - 70, 110)
+        demo_rect = pygame.Rect(panel.x + 35, y + 10, panel.width - 70, 120)
         pygame.draw.rect(surface, (14, 18, 30), demo_rect, border_radius=6)
         pygame.draw.rect(surface, (0, 180, 255), demo_rect, width=1, border_radius=6)
 
         p_a = (demo_rect.x + 160, demo_rect.centery)
         p_b = (demo_rect.right - 160, demo_rect.centery)
-        r = 22 + int(math.sin(self.anim_time * 6.0) * 3)
 
-        pygame.draw.circle(surface, COLOR_PORTAL_A, p_a, r, width=3)
-        pygame.draw.circle(surface, COLOR_PORTAL_B, p_b, r, width=3)
+        # Scale portal ovals to fit the demo box (preserve aspect ratio)
+        scale = min(1.0, (demo_rect.height * 0.45) / PORTAL_RY)
+        pulse = math.sin(self.anim_time * 6.0) * 2.0
+        rx = int(PORTAL_RX * scale + pulse * 0.6)
+        ry = int(PORTAL_RY * scale + pulse)
+
+        # Portal A — Electric Blue
+        glow_a = pygame.Surface((rx * 2 + 12, ry * 2 + 12), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_a, (10, 40, 70, 160), glow_a.get_rect())
+        surface.blit(glow_a, (p_a[0] - rx - 6, p_a[1] - ry - 6))
+        pygame.draw.ellipse(surface, COLOR_PORTAL_A, pygame.Rect(p_a[0] - rx, p_a[1] - ry, rx * 2, ry * 2), width=3)
+        pygame.draw.ellipse(surface, (200, 240, 255), pygame.Rect(p_a[0] - max(2, rx // 4), p_a[1] - max(3, ry // 4), max(4, rx // 2), max(6, ry // 2)))
+
+        # Portal B — Neon Orange
+        glow_b = pygame.Surface((rx * 2 + 12, ry * 2 + 12), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow_b, (70, 30, 10, 160), glow_b.get_rect())
+        surface.blit(glow_b, (p_b[0] - rx - 6, p_b[1] - ry - 6))
+        pygame.draw.ellipse(surface, COLOR_PORTAL_B, pygame.Rect(p_b[0] - rx, p_b[1] - ry, rx * 2, ry * 2), width=3)
+        pygame.draw.ellipse(surface, (255, 230, 180), pygame.Rect(p_b[0] - max(2, rx // 4), p_b[1] - max(3, ry // 4), max(4, rx // 2), max(6, ry // 2)))
 
         lbl_a = self.font_btn.render("PORTAL A", True, COLOR_PORTAL_A)
         lbl_b = self.font_btn.render("PORTAL B", True, COLOR_PORTAL_B)
-        surface.blit(lbl_a, (p_a[0] - lbl_a.get_width() // 2, p_a[1] + 30))
-        surface.blit(lbl_b, (p_b[0] - lbl_b.get_width() // 2, p_b[1] + 30))
+        surface.blit(lbl_a, (p_a[0] - lbl_a.get_width() // 2, p_a[1] + ry + 4))
+        surface.blit(lbl_b, (p_b[0] - lbl_b.get_width() // 2, p_b[1] + ry + 4))
 
-        flow_txt = self.font_heading.render("<==== TELEPORT LINKED ====>", True, (240, 245, 255))
+        flow_txt = self.font_heading.render("<==== TELEPORT LINKED ====>" , True, (240, 245, 255))
         surface.blit(flow_txt, (demo_rect.centerx - flow_txt.get_width() // 2, demo_rect.centery - flow_txt.get_height() // 2))
 
     def _draw_page_powerups(self, surface: pygame.Surface, panel: pygame.Rect):

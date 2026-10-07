@@ -67,18 +67,21 @@ COLOR_MODAL_BG: Tuple[int, int, int] = (18, 22, 36)           # Deep Slate Panel
 COLOR_HUD_MUTED: Tuple[int, int, int] = (120, 135, 165)
 
 # Mode 1: Wind Mode Tunables
-WIND_CYCLE_DURATION: float = 10.0   # 10s total cycle
+WIND_CYCLE_DURATION: float = 6.0    # 6s total cycle (shortened interval)
 WIND_ACTIVE_DURATION: float = 2.0  # 2s active wind
 WIND_WARNING_DURATION: float = 0.5 # 0.5s pre-wind warning
 WIND_FORCE: float = 400.0          # Ball acceleration in pixels/s^2
 
 # Mode 2: Portal Mode Tunables
 PORTAL_RADIUS: float = 26.0
+PORTAL_RX: float = 28.0            # Oval horizontal semi-axis (slightly wider than radius)
+PORTAL_RY: float = 44.0            # Oval vertical semi-axis (taller — vertical oval shape)
 PORTAL_COOLDOWN: float = 0.3       # Seconds before ball can re-teleport
 PORTAL_ZONE_W_RATIO: float = 0.40  # Keep inside central 40% of field width
 PORTAL_ZONE_H_RATIO: float = 0.50  # Keep inside central 50% of field height
 PORTAL_DEFAULT_Y_OFFSET: float = 120.0
 PORTAL_JITTER_X: float = 40.0
+PORTAL_REPOSITION_INTERVAL: float = 20.0  # Seconds between each portal's position shift
 COLOR_PORTAL_A: Tuple[int, int, int] = (0, 200, 255)   # Electric Blue
 COLOR_PORTAL_B: Tuple[int, int, int] = (255, 130, 0)   # Neon Orange
 

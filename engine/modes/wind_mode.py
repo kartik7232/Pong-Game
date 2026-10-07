@@ -74,7 +74,8 @@ class WindStreak:
 class WindMode(GameMode):
     """
     Mode 1 - Wind Mode
-    - 10s cycle: 8s calm, 2s active.
+    - 6s cycle: 3.5s calm, 0.5s warning, 2s active.
+    - Timer runs continuously across point losses (no reset on round end).
     - Uniform random direction: UP, DOWN, LEFT, RIGHT.
     - Constant acceleration applied to ball, clamped to MAX_BALL_SPEED.
     - Visual streak particles + warning arrow + HUD badge.
@@ -95,7 +96,6 @@ class WindMode(GameMode):
         self.is_warning: bool = False
         self.streaks: List[WindStreak] = []
         self.font: Optional[pygame.font.Font] = None
-        self.is_round_active: bool = True
 
     def reset(self) -> None:
         self.timer = 0.0
@@ -103,10 +103,9 @@ class WindMode(GameMode):
         self.is_warning = False
         self.current_direction = random.choice(self.DIRECTIONS)
         self.streaks.clear()
-        self.is_round_active = True
 
     def update(self, dt: float) -> None:
-        if not self.is_enabled or not self.is_round_active:
+        if not self.is_enabled:
             return
 
         calm_duration = WIND_CYCLE_DURATION - WIND_ACTIVE_DURATION  # 8.0s
@@ -150,7 +149,7 @@ class WindMode(GameMode):
             self.streaks.clear()
 
     def on_ball_update(self, ball: Ball, dt: float = 0.0) -> None:
-        if not self.is_enabled or not self.is_active or not self.is_round_active:
+        if not self.is_enabled or not self.is_active:
             return
 
         # Apply constant acceleration in wind direction
@@ -164,13 +163,11 @@ class WindMode(GameMode):
             ball.vel = norm * MAX_BALL_SPEED
 
     def on_round_start(self) -> None:
-        self.is_round_active = True
+        pass  # Timer runs continuously; no pause needed
 
     def on_round_end(self) -> None:
-        self.is_round_active = False
-        self.is_active = False
-        self.is_warning = False
-        self.timer = 0.0
+        # Keep the timer running so wind continues uninterrupted across point losses.
+        # Only clear the visual streaks to avoid orphaned particles during the reset pause.
         self.streaks.clear()
 
     def disable(self) -> None:
