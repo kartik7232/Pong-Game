@@ -16,6 +16,7 @@ Features:
 import sys
 import math
 import random
+import asyncio
 import pygame
 from typing import List, Tuple, Optional
 
@@ -268,7 +269,8 @@ class PongGameApp:
             pygame.display.flip()
 
         pygame.quit()
-        sys.exit(0)
+        if sys.platform != "emscripten":
+            sys.exit(0)
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -633,10 +635,30 @@ class PongGameApp:
         self.exit_confirm_menu.draw(self.screen)
 
 
+async def main_async():
+    """Async entry point required by pygbag for browser/WASM runtime."""
+    app = PongGameApp()
+    while app.running:
+        dt_ms = app.clock.tick(TARGET_FPS)
+        dt = min(dt_ms / 1000.0, 0.05)
+        app._handle_events()
+        app._update(dt)
+        app._render()
+        pygame.display.flip()
+        await asyncio.sleep(0)
+    pygame.quit()
+    if sys.platform != "emscripten":
+        sys.exit(0)
+
+
 def main():
+    """Desktop entry point — unchanged behaviour for native runs."""
     app = PongGameApp()
     app.run()
 
 
 if __name__ == "__main__":
-    main()
+    if sys.platform == "emscripten":
+        asyncio.run(main_async())
+    else:
+        main()

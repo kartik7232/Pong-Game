@@ -67,7 +67,13 @@ Pong-Game/
 python main.py
 ```
 
-### 2. Controls Reference Table
+### 2. Play in a Browser with GitHub Pages
+
+The `Build and deploy browser game` workflow packages the game with Pygbag and publishes it to GitHub Pages whenever changes are pushed. In the repository settings, set **Pages > Build and deployment > Source** to **GitHub Actions**. After the workflow finishes, open the Pages URL shown in the workflow deployment.
+
+The browser version uses the same controls listed below. Select a game mode, choose one-player or local two-player, then play with the keyboard.
+
+### 3. Controls Reference Table
 
 | Action | Player 1 (Left) | Player 2 (Right) | Menu / System |
 | :--- | :--- | :--- | :--- |
@@ -123,4 +129,4 @@ Runs 31 test cases validating kinematics, boundary clamping, angle deflections, 
 > *"Powerup Mode supports up to 4 concurrent orbs with an expanded 28px radius (76px effective collision diameter) and 15.0s lifespan. When a player scores, `on_round_end()` preserves active court orbs rather than wiping them, maintaining rally flow and maximizing strategic ability usage."*
 
 > **Point 4: Self-Contained Mode Interface & Polymorphic Chaos Rotation**  
-> *"All four game modes implement the polymorphic `GameMode` interface (`init`, `reset`, `update`, `draw`, `on_ball_update`, `on_round_start`, `on_round_end`, `enable`, `disable`). Chaos Mode achieves zero code duplication by composing the existing Wind, Portals, and Powerup instances, enforcing strict 60s rotation without back-to-back repetitions and purging all stale timers/entities on shift."*
+> *"All four game modes implement the polymorphic `GameMode` interface (`init`, `reset`, `update`, `draw`, `on_ball_update`, `on_round_start`, `on_round_end`, `enable`, `disable`). Chaos Mode achieves zero code duplication by composing the existing Wind, Portals, and Powerup instances, enforcing strict 60s rotation without back-to-back repetitions and purging all stale timers/entities on shift."*
